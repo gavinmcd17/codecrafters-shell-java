@@ -4,7 +4,9 @@ import java.util.*;
 
 public class Main {
     private static final Set<String> VALID_COMMANDS =
-            new HashSet<>(Arrays.asList("exit", "quit", "echo", "type", "pwd"));
+            new HashSet<>(Arrays.asList("exit", "echo", "type", "pwd", "cd"));
+
+    private static LinkedList<String> tokens = new LinkedList<>();
 
     /**
      * Parse shell input into a linked list of tokens
@@ -37,12 +39,9 @@ public class Main {
     }
 
     /**
-     * Handle the exit function:
-     *  exit the program with code 0 or 1
-     *
-     * @param tokens a linked list of tokens from user input
+     * Exit the program with either code 0 or 1
      */
-    private static void exit(LinkedList<String> tokens) {
+    private static void exit() {
         int code = 0;
 
         if (tokens.size() > 1) {
@@ -57,12 +56,9 @@ public class Main {
     }
 
     /**
-     * Handle the echo function:
-     *  echo a user inputted string
-     *
-     * @param tokens a linked list of tokens from user input
+     * Echo a user inputted string
      */
-    private static void echo(LinkedList<String> tokens) {
+    private static void echo() {
         if (tokens.size() <= 1) {
             System.out.println();
             return;
@@ -72,12 +68,9 @@ public class Main {
     }
 
     /**
-     * Handle the type function:
-     *  give the type of user inputted string or find path of program
-     *
-     * @param tokens a linked list of tokens from user input
+     * Give the type of command or the path of program
      */
-    private static void type(LinkedList<String> tokens) {
+    private static void type() {
         if (tokens.size() <= 1) {
             System.out.println("Usage: type <command>");
             return;
@@ -105,13 +98,33 @@ public class Main {
         System.out.println(command + ": not found");
     }
 
-    /**
-     * Attempt to run a program with given arguments
-     *
-     * @param tokens a linked list of tokens from user input
-     * @return true if the program was run
-     */
-    private static boolean tryRun(LinkedList<String> tokens, String input) throws IOException {
+    private static void pwd() {
+        System.out.println(System.getProperty("user.dir"));
+    }
+
+    private static void cd() {
+        if (tokens.size() <= 1) {
+            System.out.println("Usage: cd <path>");
+            return;
+        }
+
+        String targetPath = tokens.get(1);
+        File dir = new File(targetPath);
+
+        if (!dir.isAbsolute()) {
+            System.out.println("Not supported");
+            return;
+        }
+
+        if (!dir.exists() || !dir.isDirectory()) {
+            System.out.printf("cd: %s: No such file or directory\n", dir);
+            return;
+        }
+
+        System.setProperty("user.dir", dir.getAbsolutePath());
+    }
+
+    private static boolean tryRun(String input) throws IOException {
         String program = tokens.getFirst().toLowerCase();
 
         String path = System.getenv("PATH");
@@ -130,10 +143,6 @@ public class Main {
         return false;
     }
 
-    private static void pwd(LinkedList<String> tokens) {
-        System.out.println(System.getProperty("user.dir"));
-    }
-
     /**
      * Entry point of the program
      * @param args not used
@@ -142,13 +151,14 @@ public class Main {
     public static void main(String[] args) throws Exception {
         Scanner sc = new Scanner(System.in);
 
+        // REPL: Read Eval Print Loop
         while (true) {
             System.out.print("$ ");
 
             if (!sc.hasNextLine()) break;
 
             String input = sc.nextLine();
-            LinkedList<String> tokens = parseInput(input.trim());
+            tokens = parseInput(input.trim());
 
             // do nothing if input is empty
             if (tokens.isEmpty()) {
@@ -159,25 +169,19 @@ public class Main {
             String cmd = tokens.getFirst();
 
             switch (cmd) {
-                case "quit":
-                case "exit":
-                    exit(tokens);
-                    break;
+                case "exit" -> exit();
 
-                case "echo":
-                    echo(tokens);
-                    break;
+                case "echo" -> echo();
 
-                case "type":
-                    type(tokens);
-                    break;
+                case "type" -> type();
 
-                case "pwd":
-                    pwd(tokens);
-                    break;
+                case "pwd" -> pwd();
 
-                default:
-                    if (!tryRun(tokens, input)) System.out.println(input + ": command not found");
+                case "cd" -> cd();
+
+                default -> {
+                    if (!tryRun(input)) System.out.println(input + ": command not found");
+                }
             }
         }
 
