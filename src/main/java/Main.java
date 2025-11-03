@@ -1,3 +1,4 @@
+import java.io.File;
 import java.util.*;
 
 public class Main {
@@ -39,7 +40,7 @@ public class Main {
      *
      * @param tokens a linked list of tokens from user input
      */
-    private static void handleExit(LinkedList<String> tokens) {
+    private static void exit(LinkedList<String> tokens) {
         int code = 0;
 
         if (tokens.size() > 1) {
@@ -58,7 +59,7 @@ public class Main {
      *
      * @param tokens a linked list of tokens from user input
      */
-    private static void handleEcho(LinkedList<String> tokens) {
+    private static void echo(LinkedList<String> tokens) {
         if (tokens.size() <= 1) {
             System.out.println();
             return;
@@ -67,19 +68,31 @@ public class Main {
         System.out.println(String.join(" ", tokens.subList(1, tokens.size())));
     }
 
-    private static void handleType(LinkedList<String> tokens) {
+    private static void type(LinkedList<String> tokens) {
         if (tokens.size() <= 1) {
             System.out.println("Usage: type <command>");
             return;
         }
 
-        String queried = tokens.get(1).toLowerCase(Locale.ROOT);
+        String command = tokens.get(1).toLowerCase(); // .toLowerCase(Locale.ROOT)
 
-        if (VALID_COMMANDS.contains(queried)) {
-            System.out.println(queried + " is a shell builtin");
+        if (VALID_COMMANDS.contains(command)) {
+            System.out.println(command + " is a shell builtin");
+            return;
         } else {
-            System.out.println(queried + ": not found");
+            String path_commands = System.getenv("PATH");
+            String [] path_command = path_commands.split(File.pathSeparator);
+
+            for (String s : path_command) {
+                File file = new File(s, command);
+                if (file.exists() && file.canExecute()) {
+                    System.out.println(command + " is " + file.getAbsolutePath());
+                    return;
+                }
+            }
         }
+
+        System.out.println(command + ": not found");
     }
 
     /**
@@ -98,24 +111,26 @@ public class Main {
             String input = sc.nextLine();
             LinkedList<String> tokens = parseInput(input.trim());
 
+            // do nothing if input is empty
             if (tokens.isEmpty()) {
                 continue;
             }
 
+            // cmd token is the first token of input
             String cmd = tokens.getFirst();
 
             switch (cmd) {
                 case "quit":
                 case "exit":
-                    handleExit(tokens);
+                    exit(tokens);
                     break;
 
                 case "echo":
-                    handleEcho(tokens);
+                    echo(tokens);
                     break;
 
                 case "type":
-                    handleType(tokens);
+                    type(tokens);
                     break;
 
                 default:
