@@ -4,8 +4,18 @@ public class Main {
     public static void main(String[] args) throws Exception {
         Scanner sc = new Scanner(System.in);
 
-        System.out.print("$ ");
-        String input = sc.nextLine();
-        System.out.printf("%s: command not found", input);
+        loop:
+        while(true) {
+            System.out.print("$ ");
+            String input = sc.nextLine().trim();
+            switch (input) {
+//                case "exit":
+//                case "quit":
+//                    System.out.println("Goodbye.");
+//                    break loop;
+                default:
+                    System.out.println(input + ": command not found");
+            }
+        }
     }
 }
