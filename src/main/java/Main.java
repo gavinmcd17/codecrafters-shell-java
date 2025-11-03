@@ -1,4 +1,5 @@
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
 
 public class Main {
@@ -36,7 +37,8 @@ public class Main {
     }
 
     /**
-     * Helper function to handle the exit function; exit the program with code 0 or 1
+     * Handle the exit function:
+     *  exit the program with code 0 or 1
      *
      * @param tokens a linked list of tokens from user input
      */
@@ -55,7 +57,8 @@ public class Main {
     }
 
     /**
-     * Helper function to handle the echo function; echo user inputted string
+     * Handle the echo function:
+     *  echo a user inputted string
      *
      * @param tokens a linked list of tokens from user input
      */
@@ -68,6 +71,12 @@ public class Main {
         System.out.println(String.join(" ", tokens.subList(1, tokens.size())));
     }
 
+    /**
+     * Handle the type function:
+     *  give the type of user inputted string or find path of program
+     *
+     * @param tokens a linked list of tokens from user input
+     */
     private static void type(LinkedList<String> tokens) {
         if (tokens.size() <= 1) {
             System.out.println("Usage: type <command>");
@@ -81,10 +90,11 @@ public class Main {
             return;
         } else {
             String path = System.getenv("PATH");
-            String [] path_commands = path.split(File.pathSeparator);
+            String [] paths = path.split(File.pathSeparator);
 
-            for (String s : path_commands) {
+            for (String s : paths) {
                 File file = new File(s, command);
+
                 if (file.exists() && file.canExecute()) {
                     System.out.println(command + " is " + file.getAbsolutePath());
                     return;
@@ -93,6 +103,31 @@ public class Main {
         }
 
         System.out.println(command + ": not found");
+    }
+
+    /**
+     * Attempt to run a program with given arguments
+     *
+     * @param tokens a linked list of tokens from user input
+     * @return true if the program was run
+     */
+    private static boolean tryRun(LinkedList<String> tokens, String input) throws IOException {
+        String program = tokens.getFirst().toLowerCase();
+
+        String path = System.getenv("PATH");
+        String [] paths = path.split(File.pathSeparator);
+
+        for (String s : paths) {
+            File file = new File(s, program);
+
+            if (file.exists() && file.canExecute()) {
+                Process process = Runtime.getRuntime().exec(input.split(" "));
+                process.getInputStream().transferTo(System.out);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -116,7 +151,7 @@ public class Main {
                 continue;
             }
 
-            // cmd token is the first token of input
+            // command token is the first token of input
             String cmd = tokens.getFirst();
 
             switch (cmd) {
@@ -134,7 +169,7 @@ public class Main {
                     break;
 
                 default:
-                    System.out.println(input + ": command not found");
+                    if (!tryRun(tokens, input)) System.out.println(input + ": command not found");
             }
         }
 
