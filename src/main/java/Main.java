@@ -80,10 +80,10 @@ public class Main {
             System.out.println(command + " is a shell builtin");
             return;
         } else {
-            String path_commands = System.getenv("PATH");
-            String [] path_command = path_commands.split(File.pathSeparator);
+            String path = System.getenv("PATH");
+            String [] path_commands = path.split(File.pathSeparator);
 
-            for (String s : path_command) {
+            for (String s : path_commands) {
                 File file = new File(s, command);
                 if (file.exists() && file.canExecute()) {
                     System.out.println(command + " is " + file.getAbsolutePath());
