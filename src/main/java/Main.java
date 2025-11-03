@@ -4,7 +4,7 @@ import java.util.*;
 
 public class Main {
     private static final Set<String> VALID_COMMANDS =
-            new HashSet<>(Arrays.asList("exit", "quit", "echo", "type"));
+            new HashSet<>(Arrays.asList("exit", "quit", "echo", "type", "pwd"));
 
     /**
      * Parse shell input into a linked list of tokens
@@ -130,6 +130,10 @@ public class Main {
         return false;
     }
 
+    private static void pwd(LinkedList<String> tokens) {
+        System.out.println(System.getProperty("user.dir"));
+    }
+
     /**
      * Entry point of the program
      * @param args not used
@@ -166,6 +170,10 @@ public class Main {
 
                 case "type":
                     type(tokens);
+                    break;
+
+                case "pwd":
+                    pwd(tokens);
                     break;
 
                 default:
