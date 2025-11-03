@@ -1,7 +1,9 @@
-import java.util.Scanner;
-import java.util.LinkedList;
+import java.util.*;
 
 public class Main {
+    private static final Set<String> VALID_COMMANDS =
+            new HashSet<>(Arrays.asList("exit", "quit", "echo", "type"));
+
     /**
      * Parse shell input into a linked list of tokens
      *
@@ -57,12 +59,27 @@ public class Main {
      * @param tokens a linked list of tokens from user input
      */
     private static void handleEcho(LinkedList<String> tokens) {
-        if (tokens == null || tokens.size() <= 1) {
+        if (tokens.size() <= 1) {
             System.out.println();
             return;
         }
 
         System.out.println(String.join(" ", tokens.subList(1, tokens.size())));
+    }
+
+    private static void handleType(LinkedList<String> tokens) {
+        if (tokens.size() <= 1) {
+            System.out.println("Usage: type <command>");
+            return;
+        }
+
+        String queried = tokens.get(1).toLowerCase(Locale.ROOT);
+
+        if (VALID_COMMANDS.contains(queried)) {
+            System.out.println(queried + " is a shell builtin");
+        } else {
+            System.out.println(queried + ": not found");
+        }
     }
 
     /**
@@ -85,7 +102,7 @@ public class Main {
                 continue;
             }
 
-            String cmd = tokens.get(0);
+            String cmd = tokens.getFirst();
 
             switch (cmd) {
                 case "quit":
@@ -95,6 +112,10 @@ public class Main {
 
                 case "echo":
                     handleEcho(tokens);
+                    break;
+
+                case "type":
+                    handleType(tokens);
                     break;
 
                 default:
