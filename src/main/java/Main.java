@@ -6,7 +6,7 @@ import java.util.Scanner;
 public class Main {
     static final List<String> validCommands = new ArrayList<>(List.of("exit", "echo", "type"));
 
-    static void main() throws Exception {
+    static void main(String[] args) throws Exception {
         Scanner sc = new Scanner(System.in);
 
         while (true) {
