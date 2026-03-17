@@ -6,22 +6,6 @@ import java.util.Scanner;
 public class Main {
     static final List<String> validCommands = new ArrayList<>(List.of("exit", "echo", "type"));
 
-    private static void type(String command) {
-        if (validCommands.contains(command)) {
-            System.out.printf("%s is a shell builtin\n", command);
-        } else {
-            System.out.printf("%s: not found\n", command);
-        }
-    }
-
-    private static void echo(String[] arguments) {
-        for (int i = 0; i < arguments.length; i++) {
-            if (i > 0) System.out.print(" ");
-            System.out.print(arguments[i]);
-        }
-        System.out.println();
-    }
-
     public static void main(String[] args) throws Exception {
         Scanner sc = new Scanner(System.in);
 
@@ -44,7 +28,16 @@ public class Main {
                 }
 
                 case "type": {
-                    type(command);
+                    if (arguments.length > 0) {
+                        String toCheck = arguments[0];
+
+                        if (validCommands.contains(toCheck)) {
+                            System.out.printf("%s is a shell builtin\n", toCheck);
+                        } else {
+                            System.out.printf("%s: not found\n", toCheck);
+                        }
+                    }
+
                     break;
                 }
 
@@ -53,5 +46,14 @@ public class Main {
                 }
             }
         }
+    }
+
+    private static void echo(String[] arguments) {
+        for (int i = 0; i < arguments.length; i++) {
+            if (i > 0) System.out.print(" ");
+            System.out.print(arguments[i]);
+        }
+        System.out.println();
+        return;
     }
 }
