@@ -8,9 +8,23 @@ public class Main {
             System.out.print("$ ");
             String userInput = sc.nextLine();
 
-            switch (userInput) {
+            String[] command = userInput.split(" ");
+
+            switch (command[0]) {
                 case "exit": {
                     System.exit(0);
+                    break;
+                }
+
+                case "echo": {
+                    if (command.length > 1) {
+                        for (int i = 1; i < command.length; i++) {
+                            System.out.print(command[i] + " ");
+                        }
+
+                        System.out.println();
+                    }
+                    break;
                 }
 
                 default: {
