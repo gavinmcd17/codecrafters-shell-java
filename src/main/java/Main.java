@@ -6,7 +6,7 @@ import java.util.Scanner;
 public class Main {
     static final List<String> validCommands = new ArrayList<>(List.of("exit", "echo", "type"));
 
-    public static void main(String[] args) throws Exception {
+    static void main() throws Exception {
         Scanner sc = new Scanner(System.in);
 
         while (true) {
@@ -28,16 +28,7 @@ public class Main {
                 }
 
                 case "type": {
-                    if (arguments.length > 0) {
-                        String toCheck = arguments[0];
-
-                        if (validCommands.contains(toCheck)) {
-                            System.out.printf("%s is a shell builtin\n", toCheck);
-                        } else {
-                            System.out.printf("%s: not found\n", toCheck);
-                        }
-                    }
-
+                    type(arguments);
                     break;
                 }
 
@@ -48,12 +39,23 @@ public class Main {
         }
     }
 
+    private static void type(String[] arguments) {
+        if (arguments.length > 0) {
+            String toCheck = arguments[0];
+
+            if (validCommands.contains(toCheck)) {
+                System.out.printf("%s is a shell builtin\n", toCheck);
+            } else {
+                System.out.printf("%s: not found\n", toCheck);
+            }
+        }
+    }
+
     private static void echo(String[] arguments) {
         for (int i = 0; i < arguments.length; i++) {
             if (i > 0) System.out.print(" ");
             System.out.print(arguments[i]);
         }
         System.out.println();
-        return;
     }
 }
