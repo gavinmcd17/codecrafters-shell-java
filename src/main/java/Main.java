@@ -8,7 +8,15 @@ public class Main {
             System.out.print("$ ");
             String userInput = sc.nextLine();
 
-            System.out.printf("%s: command not found\n", userInput);
+            switch (userInput) {
+                case "exit": {
+                    System.exit(0);
+                }
+
+                default: {
+                    System.out.printf("%s: command not found\n", userInput);
+                }
+            }
         }
     }
 }
