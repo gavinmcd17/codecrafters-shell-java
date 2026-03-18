@@ -28,15 +28,24 @@ public class Main {
                     break;
                 }
 
+                case "pwd": {
+                    System.out.println(pwd());
+                    break;
+                }
+
                 default: {
                     boolean programRan = tryRun(command, arguments);
 
-                    if  (!programRan) {
+                    if (!programRan) {
                         System.out.printf("%s: command not found\n", command);
                     }
                 }
             }
         }
+    }
+
+    private static String pwd() {
+        return System.getProperty("user.dir");
     }
 
     /**
@@ -90,7 +99,7 @@ public class Main {
      * @return description of the command type, or an empty string
      */
     private static String type(String[] arguments) {
-        Set<String> validCommands = Set.of("exit", "echo", "type");
+        Set<String> validCommands = Set.of("exit", "echo", "type", "pwd");
 
         if (arguments.length > 0) {
             String toCheck = arguments[0];
