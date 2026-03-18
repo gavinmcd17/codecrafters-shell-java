@@ -48,7 +48,7 @@ public class Main {
                 for (String path : paths) {
                     File file = new File(path, toCheck);
 
-                    if (file.exists() && file.canRead()) {
+                    if (file.exists() && file.canExecute()) {
                         return String.format("%s is %s\n", toCheck, file.getAbsolutePath());
                     }
                 }
