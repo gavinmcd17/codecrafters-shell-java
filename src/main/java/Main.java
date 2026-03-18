@@ -2,8 +2,11 @@ import java.io.File;
 import java.util.*;
 
 public class Main {
+    private static String workingDirectory;
+
     static void main() throws Exception {
         Scanner sc = new Scanner(System.in);
+        workingDirectory = System.getProperty("user.dir");
 
         while (true) {
             System.out.print("$ ");
@@ -33,6 +36,11 @@ public class Main {
                     break;
                 }
 
+                case "cd": {
+                    System.out.print(cd(arguments));
+                    break;
+                }
+
                 default: {
                     boolean programRan = tryRun(command, arguments);
 
@@ -44,8 +52,24 @@ public class Main {
         }
     }
 
+    private static String cd(String[] arguments) {
+        if (arguments.length == 0) {
+            return "";
+        }
+
+        String userDirectory = arguments[0];
+        File newDirectory = new File(userDirectory);
+
+        if (newDirectory.isDirectory()) {
+            workingDirectory = userDirectory;
+            return "";
+        }
+
+        return String.format("%s: No such file or directory\n", newDirectory.getAbsolutePath());
+    }
+
     private static String pwd() {
-        return System.getProperty("user.dir");
+        return workingDirectory;
     }
 
     /**
