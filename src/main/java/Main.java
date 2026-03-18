@@ -1,12 +1,8 @@
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Scanner;
+import java.io.File;
+import java.util.*;
 
 public class Main {
-    static final List<String> validCommands = new ArrayList<>(List.of("exit", "echo", "type"));
-
-    public static void main(String[] args) throws Exception {
+    static void main(String[] args) throws Exception {
         Scanner sc = new Scanner(System.in);
 
         while (true) {
@@ -23,13 +19,12 @@ public class Main {
                 }
 
                 case "echo": {
-                    echo(arguments);
+                    System.out.print(echo(arguments));
                     break;
                 }
 
                 case "type": {
-                    type(arguments);
-
+                    System.out.print(type(arguments));
                     break;
                 }
 
@@ -40,23 +35,42 @@ public class Main {
         }
     }
 
-    private static void type(String[] arguments) {
+    private static String type(String[] arguments) {
+        Set<String> validCommands = Set.of("exit", "echo", "type");
+        String[] paths = System.getenv("PATH").split(File.pathSeparator);
+
         if (arguments.length > 0) {
             String toCheck = arguments[0];
 
             if (validCommands.contains(toCheck)) {
-                System.out.printf("%s is a shell builtin\n", toCheck);
+                return String.format("%s is a shell builtin\n", toCheck);
             } else {
-                System.out.printf("%s: not found\n", toCheck);
+                for (String path : paths) {
+                    File file = new File(path, toCheck);
+
+                    if (file.exists() && file.canRead()) {
+                        return String.format("%s is %s\n", toCheck, file.getAbsolutePath());
+                    }
+                }
+
+                return String.format("%s: not found\n", toCheck);
             }
+        } else {
+            return "";
         }
     }
 
-    private static void echo(String[] arguments) {
+    private static String echo(String[] arguments) {
+        StringBuilder toEcho = new StringBuilder();
+
         for (int i = 0; i < arguments.length; i++) {
-            if (i > 0) System.out.print(" ");
-            System.out.print(arguments[i]);
+            if (i > 0) {
+                toEcho.append(' ');
+            }
+
+            toEcho.append(arguments[i]);
         }
-        System.out.println();
+
+        return toEcho.append('\n').toString();
     }
 }
