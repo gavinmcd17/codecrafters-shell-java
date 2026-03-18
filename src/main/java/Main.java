@@ -2,7 +2,7 @@ import java.io.File;
 import java.util.*;
 
 public class Main {
-    static void main(String[] args) throws Exception {
+    static void main() throws Exception {
         Scanner sc = new Scanner(System.in);
 
         while (true) {
@@ -59,6 +59,13 @@ public class Main {
         return null;
     }
 
+    /**
+     * Given a program name and arguments, try to execute the program.
+     *
+     * @param programName name of a program in PATH
+     * @param arguments arguments to pass to the program
+     * @return true if the program was run, otherwise false
+     */
     private static boolean tryRun(String programName, String[] arguments) throws Exception {
         File program = findExecutable(programName);
 
@@ -76,6 +83,12 @@ public class Main {
         return false;
     }
 
+    /**
+     * Given shell arguments, describe the command type of the first argument.
+     *
+     * @param arguments command arguments provided by the user
+     * @return description of the command type, or an empty string
+     */
     private static String type(String[] arguments) {
         Set<String> validCommands = Set.of("exit", "echo", "type");
 
@@ -98,6 +111,12 @@ public class Main {
         }
     }
 
+    /**
+     * Given shell arguments, join them into a single output line.
+     *
+     * @param arguments command arguments provided by the user
+     * @return joined arguments followed by a newline
+     */
     private static String echo(String[] arguments) {
         StringBuilder toEcho = new StringBuilder();
 
