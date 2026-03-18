@@ -146,7 +146,8 @@ public class Main {
                 continue;
             }
 
-            if (c == '\\') {
+            // Determine if the next character should have its rules ignored
+            if (c == '\\' && !inSingleQuotes && !inDoubleQuotes) {
                 seenBackSlash = true;
                 continue;
             }
