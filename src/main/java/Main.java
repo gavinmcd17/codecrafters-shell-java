@@ -57,15 +57,28 @@ public class Main {
             return "";
         }
 
-        String userDirectory = arguments[0];
-        File newDirectory = new File(userDirectory);
+        String target = arguments[0];
 
-        if (newDirectory.isDirectory()) {
-            workingDirectory = userDirectory;
-            return "";
+        if (target.equals("~")) {
+            target = System.getProperty("user.home");
         }
 
-        return String.format("%s: No such file or directory\n", newDirectory.getAbsolutePath());
+        File newDirectory = new File(target);
+
+        if (!newDirectory.isAbsolute()) {
+            newDirectory = new File(workingDirectory, target);
+        }
+
+        if (newDirectory.isDirectory()) {
+            try {
+                workingDirectory = newDirectory.getCanonicalPath();
+                return "";
+            } catch (Exception e) {
+                return String.format("cd: %s: No such file or directory\n", target);
+            }
+        }
+
+        return String.format("cd: %s: No such file or directory\n", target);
     }
 
     private static String pwd() {
@@ -108,6 +121,7 @@ public class Main {
             command.addAll(Arrays.asList(arguments)); // user args
 
             ProcessBuilder pb = new ProcessBuilder(command);
+            pb.directory(new File(workingDirectory));
             Process process = pb.start();
             process.getInputStream().transferTo(System.out);
             return true;
