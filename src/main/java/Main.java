@@ -151,7 +151,7 @@ public class Main {
                 continue;
             }
 
-            if (c == ' ' && !inSingleQuotes && !inDoubleQuotes && !seenBackSlash) {
+            if (c == ' ' && !inSingleQuotes && !inDoubleQuotes) {
                 if (!current.isEmpty()) {
                     tokens.add(current.toString());
                     current.setLength(0);
