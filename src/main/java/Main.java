@@ -2,8 +2,17 @@ import java.io.File;
 import java.util.*;
 
 public class Main {
+    /** Tracks the shell's current working directory independently of the parent process. */
     private static String workingDirectory;
 
+    /** Builtin commands that are resolved by the shell without consulting {@code PATH}. */
+    private static final Set<String> validCommands = Set.of("exit", "echo", "type", "pwd");
+
+    /**
+     * Starts the interactive read-eval-print loop.
+     *
+     * @throws Exception if reading input or launching a child process fails
+     */
     static void main() throws Exception {
         Scanner sc = new Scanner(System.in);
         workingDirectory = System.getProperty("user.dir");
@@ -57,6 +66,12 @@ public class Main {
         }
     }
 
+    /**
+     * Changes the shell's current working directory.
+     *
+     * @param arguments command arguments where the first item is the target directory
+     * @return an error message when the directory cannot be resolved, otherwise an empty string
+     */
     private static String cd(String[] arguments) {
         if (arguments.length == 0) {
             return "";
@@ -86,34 +101,62 @@ public class Main {
         return String.format("cd: %s: No such file or directory\n", target);
     }
 
+    /**
+     * Returns the shell's current working directory.
+     *
+     * @return absolute path of the current working directory
+     */
     private static String pwd() {
         return workingDirectory;
     }
 
+    /**
+     * Splits a raw command line into shell tokens while preserving quoted segments.
+     *
+     * @param line raw user input
+     * @return parsed command tokens
+     */
     private static String[] parseInput(String line) {
         List<String> tokens = new ArrayList<>();
         StringBuilder current = new StringBuilder();
+
         boolean inSingleQuotes = false;
         boolean inDoubleQuotes = false;
+        boolean seenBackSlash = false;
 
         for (int i = 0; i < line.length(); i++) {
             char c = line.charAt(i);
 
+            // If following a backslash, ignore all and insert
+            if (seenBackSlash) {
+                current.append(c);
+                seenBackSlash = false;
+                continue;
+            }
+
+            // Determine if we're entering or leaving a single quote block
             if (c == '\'' && !inDoubleQuotes) {
                 inSingleQuotes = !inSingleQuotes;
                 continue;
             }
 
+            // Determine if we're entering or leaving a double quote block
             if (c == '"' && !inSingleQuotes) {
                 inDoubleQuotes = !inDoubleQuotes;
                 continue;
             }
 
-            if (c == ' ' && !inSingleQuotes && !inDoubleQuotes) {
+            if (c == '\\') {
+                seenBackSlash = true;
+                continue;
+            }
+
+            if (c == ' ' && !inSingleQuotes && !inDoubleQuotes && !seenBackSlash) {
                 if (!current.isEmpty()) {
                     tokens.add(current.toString());
                     current.setLength(0);
                 }
+
                 continue;
             }
 
@@ -179,24 +222,22 @@ public class Main {
      * @return description of the command type, or an empty string
      */
     private static String type(String[] arguments) {
-        Set<String> validCommands = Set.of("exit", "echo", "type", "pwd");
-
-        if (arguments.length > 0) {
-            String toCheck = arguments[0];
-
-            if (validCommands.contains(toCheck)) {
-                return String.format("%s is a shell builtin\n", toCheck);
-            } else {
-                File program = findExecutable(toCheck);
-
-                if (program != null) {
-                    return String.format("%s is %s\n", toCheck, program.getAbsolutePath());
-                }
-
-                return String.format("%s: not found\n", toCheck);
-            }
-        } else {
+        if (arguments.length == 0) {
             return "";
+        }
+
+        String toCheck = arguments[0];
+
+        if (validCommands.contains(toCheck)) {
+            return String.format("%s is a shell builtin\n", toCheck);
+        } else {
+            File program = findExecutable(toCheck);
+
+            if (program != null) {
+                return String.format("%s is %s\n", toCheck, program.getAbsolutePath());
+            }
+
+            return String.format("%s: not found\n", toCheck);
         }
     }
 
