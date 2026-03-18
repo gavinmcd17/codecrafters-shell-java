@@ -60,7 +60,7 @@ public class Main {
         String target = arguments[0];
 
         if (target.equals("~")) {
-            target = System.getProperty("user.home");
+            target = System.getenv("HOME");
         }
 
         File newDirectory = new File(target);
