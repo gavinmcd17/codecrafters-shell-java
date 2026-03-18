@@ -11,7 +11,10 @@ public class Main {
         while (true) {
             System.out.print("$ ");
 
-            String[] userInput = sc.nextLine().split(" ");
+            String[] userInput = parseInput(sc.nextLine());
+            if (userInput.length == 0) {
+                continue;
+            }
             String command = userInput[0];
             String[] arguments = Arrays.copyOfRange(userInput, 1, userInput.length);
 
@@ -83,6 +86,37 @@ public class Main {
 
     private static String pwd() {
         return workingDirectory;
+    }
+
+    private static String[] parseInput(String line) {
+        List<String> tokens = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inSingleQuotes = false;
+
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+
+            if (c == '\'') {
+                inSingleQuotes = !inSingleQuotes;
+                continue;
+            }
+
+            if (c == ' ' && !inSingleQuotes) {
+                if (!current.isEmpty()) {
+                    tokens.add(current.toString());
+                    current.setLength(0);
+                }
+                continue;
+            }
+
+            current.append(c);
+        }
+
+        if (!current.isEmpty()) {
+            tokens.add(current.toString());
+        }
+
+        return tokens.toArray(new String[0]);
     }
 
     /**
