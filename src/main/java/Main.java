@@ -122,15 +122,24 @@ public class Main {
 
         boolean inSingleQuotes = false;
         boolean inDoubleQuotes = false;
-        boolean seenBackSlash = false;
+        boolean seenBackslash = false;
 
         for (int i = 0; i < line.length(); i++) {
             char c = line.charAt(i);
 
-            // If following a backslash, ignore all and insert
-            if (seenBackSlash) {
+            // If inside double quotes and seen backslash, ignore some conditions and insert
+            if (seenBackslash && inDoubleQuotes) {
+                if (c == '\\' || c == '"') {
+                    current.append(c);
+                    seenBackslash = false;
+                    continue;
+                }
+            }
+
+            // If following a backslash, ignore all conditions and insert
+            if (seenBackslash) {
                 current.append(c);
-                seenBackSlash = false;
+                seenBackslash = false;
                 continue;
             }
 
@@ -147,8 +156,8 @@ public class Main {
             }
 
             // Determine if the next character should have its rules ignored
-            if (c == '\\' && !inSingleQuotes && !inDoubleQuotes) {
-                seenBackSlash = true;
+            if (c == '\\' && !inSingleQuotes) {
+                seenBackslash = true;
                 continue;
             }
 
