@@ -12,9 +12,11 @@ public class Main {
             System.out.print("$ ");
 
             String[] userInput = parseInput(sc.nextLine());
+
             if (userInput.length == 0) {
                 continue;
             }
+
             String command = userInput[0];
             String[] arguments = Arrays.copyOfRange(userInput, 1, userInput.length);
 
@@ -92,16 +94,22 @@ public class Main {
         List<String> tokens = new ArrayList<>();
         StringBuilder current = new StringBuilder();
         boolean inSingleQuotes = false;
+        boolean inDoubleQuotes = false;
 
         for (int i = 0; i < line.length(); i++) {
             char c = line.charAt(i);
 
-            if (c == '\'') {
+            if (c == '\'' && !inDoubleQuotes) {
                 inSingleQuotes = !inSingleQuotes;
                 continue;
             }
 
-            if (c == ' ' && !inSingleQuotes) {
+            if (c == '"' && !inSingleQuotes) {
+                inDoubleQuotes = !inDoubleQuotes;
+                continue;
+            }
+
+            if (c == ' ' && !inSingleQuotes && !inDoubleQuotes) {
                 if (!current.isEmpty()) {
                     tokens.add(current.toString());
                     current.setLength(0);
