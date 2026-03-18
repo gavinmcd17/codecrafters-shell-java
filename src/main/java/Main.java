@@ -29,8 +29,11 @@ public class Main {
                 }
 
                 default: {
-                    tryRun(command, arguments);
-                    System.out.printf("%s: command not found\n", command);
+                    boolean programRan = tryRun(command, arguments);
+
+                    if  (!programRan) {
+                        System.out.printf("%s: command not found\n", command);
+                    }
                 }
             }
         }
@@ -56,19 +59,21 @@ public class Main {
         return null;
     }
 
-    private static void tryRun(String programName, String[] arguments) throws Exception {
+    private static boolean tryRun(String programName, String[] arguments) throws Exception {
         File program = findExecutable(programName);
 
         if (program != null) {
             List<String> command = new ArrayList<>();
-            command.add(program.getAbsolutePath()); // executable file
+            command.add(programName); // executable file
             command.addAll(Arrays.asList(arguments)); // user args
 
             ProcessBuilder pb = new ProcessBuilder(command);
-            pb.inheritIO();
             Process process = pb.start();
-            process.waitFor();
+            process.getInputStream().transferTo(System.out);
+            return true;
         }
+
+        return false;
     }
 
     private static String type(String[] arguments) {
