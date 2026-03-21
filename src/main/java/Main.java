@@ -1,4 +1,5 @@
 import java.io.File;
+import java.io.FileOutputStream;
 import java.util.*;
 
 public class Main {
@@ -7,6 +8,9 @@ public class Main {
 
     /** Builtin commands that are resolved by the shell without consulting {@code PATH}. */
     private static final Set<String> validCommands = Set.of("exit", "echo", "type", "pwd");
+
+    /** Parsed shell command with argv tokens and optional redirection metadata. */
+    private record ParsedCommand(String command, String[] arguments, String inputRedirect, String outputRedirect) {}
 
     /**
      * Starts the interactive read-eval-print loop.
@@ -20,14 +24,14 @@ public class Main {
         while (true) {
             System.out.print("$ ");
 
-            String[] userInput = parseInput(sc.nextLine());
+            String userInput = sc.nextLine();
+            if (userInput.isEmpty()) continue;
 
-            if (userInput.length == 0) {
-                continue;
-            }
-
-            String command = userInput[0];
-            String[] arguments = Arrays.copyOfRange(userInput, 1, userInput.length);
+            ParsedCommand parsedInput = parseInput(userInput);
+            String command = parsedInput.command();
+            String[] arguments = parsedInput.arguments();
+            String inputRedirect = parsedInput.inputRedirect();
+            String outputRedirect = parsedInput.outputRedirect();
 
             switch (command) {
                 case "exit": {
@@ -36,27 +40,27 @@ public class Main {
                 }
 
                 case "echo": {
-                    System.out.print(echo(arguments));
+                    writeOutput(echo(arguments), outputRedirect);
                     break;
                 }
 
                 case "type": {
-                    System.out.print(type(arguments));
+                    writeOutput(type(arguments), outputRedirect);
                     break;
                 }
 
                 case "pwd": {
-                    System.out.println(pwd());
+                    writeOutput(pwd() + '\n', outputRedirect);
                     break;
                 }
 
                 case "cd": {
-                    System.out.print(cd(arguments));
+                    writeOutput(cd(arguments), outputRedirect);
                     break;
                 }
 
                 default: {
-                    boolean programRan = tryRun(command, arguments);
+                    boolean programRan = tryRun(command, arguments, inputRedirect, outputRedirect);
 
                     if (!programRan) {
                         System.out.printf("%s: command not found\n", command);
@@ -114,9 +118,9 @@ public class Main {
      * Splits a raw command line into shell tokens while preserving quoted segments.
      *
      * @param line raw user input
-     * @return parsed command tokens
+     * @return parsed command tokens and redirection metadata
      */
-    private static String[] parseInput(String line) {
+    private static ParsedCommand parseInput(String line) {
         List<String> tokens = new ArrayList<>();
         StringBuilder current = new StringBuilder();
 
@@ -166,7 +170,32 @@ public class Main {
                     tokens.add(current.toString());
                     current.setLength(0);
                 }
+                continue;
+            }
 
+            if (c == '<' && !inSingleQuotes && !inDoubleQuotes) {
+                if (!current.isEmpty()) {
+                    tokens.add(current.toString());
+                    current.setLength(0);
+                }
+
+                tokens.add("<");
+                continue;
+            }
+
+            if (c == '>' && !inSingleQuotes && !inDoubleQuotes) {
+                if (current.toString().equals("1")) {
+                    current.setLength(0);
+                    tokens.add("1>");
+                    continue;
+                }
+
+                if (!current.isEmpty()) {
+                    tokens.add(current.toString());
+                    current.setLength(0);
+                }
+
+                tokens.add(">");
                 continue;
             }
 
@@ -177,7 +206,29 @@ public class Main {
             tokens.add(current.toString());
         }
 
-        return tokens.toArray(new String[0]);
+        String inputRedirect = null;
+        String outputRedirect = null;
+        List<String> arguments = new ArrayList<>();
+
+        for (int i = 0; i < tokens.size(); i++) {
+            String token = tokens.get(i);
+
+            if (token.equals("<") && i + 1 < tokens.size()) {
+                inputRedirect = tokens.get(++i);
+                continue;
+            }
+
+            if ((token.equals(">") || token.equals("1>")) && i + 1 < tokens.size()) {
+                outputRedirect = tokens.get(++i);
+                continue;
+            }
+
+            arguments.add(token);
+        }
+
+        String command = arguments.getFirst();
+        String[] argv = arguments.subList(1, arguments.size()).toArray(new String[0]);
+        return new ParsedCommand(command, argv, inputRedirect, outputRedirect);
     }
 
     /**
@@ -201,13 +252,60 @@ public class Main {
     }
 
     /**
+     * Resolves a shell file path against the shell's current working directory.
+     *
+     * @param path shell path, absolute or relative
+     * @return resolved File
+     */
+    private static File resolvePath(String path) {
+        File resolved = new File(path);
+
+        if (!resolved.isAbsolute()) {
+            resolved = new File(workingDirectory, path);
+        }
+
+        return resolved;
+    }
+
+    /**
+     * Writes command output either to the terminal or to a redirected stdout file.
+     *
+     * @param output command output text
+     * @param outputRedirect stdout redirection target, or null when writing to the terminal
+     */
+    private static void writeOutput(String output, String outputRedirect) throws Exception {
+        if (output.isEmpty()) {
+            return;
+        }
+
+        if (outputRedirect == null) {
+            System.out.print(output);
+            return;
+        }
+
+        File outputFile = resolvePath(outputRedirect);
+        File parentDirectory = outputFile.getAbsoluteFile().getParentFile();
+
+        if (parentDirectory != null && !parentDirectory.isDirectory()) {
+            System.err.printf("%s: No such file or directory\n", outputRedirect);
+            return;
+        }
+
+        try (FileOutputStream outputStream = new FileOutputStream(outputFile, false)) {
+            outputStream.write(output.getBytes());
+        }
+    }
+
+    /**
      * Given a program name and arguments, try to execute the program.
      *
      * @param programName name of a program in PATH
      * @param arguments arguments to pass to the program
+     * @param inputRedirect file path to connect to stdin, or null if not redirected
+     * @param outputRedirect file path to connect to stdout, or null if not redirected
      * @return true if the program was run, otherwise false
      */
-    private static boolean tryRun(String programName, String[] arguments) throws Exception {
+    private static boolean tryRun(String programName, String[] arguments, String inputRedirect, String outputRedirect) throws Exception {
         File program = findExecutable(programName);
 
         if (program != null) {
@@ -217,8 +315,35 @@ public class Main {
 
             ProcessBuilder pb = new ProcessBuilder(command);
             pb.directory(new File(workingDirectory));
+
+            if (inputRedirect != null) {
+                File inputFile = resolvePath(inputRedirect);
+
+                if (!inputFile.isFile()) {
+                    System.err.printf("%s: No such file or directory\n", inputRedirect);
+                    return true;
+                }
+
+                pb.redirectInput(inputFile);
+            }
+
+            if (outputRedirect != null) {
+                File outputFile = resolvePath(outputRedirect);
+                File parentDirectory = outputFile.getAbsoluteFile().getParentFile();
+                if (parentDirectory != null && !parentDirectory.isDirectory()) {
+                    System.err.printf("%s: No such file or directory\n", outputRedirect);
+                    return true;
+                }
+
+                pb.redirectOutput(outputFile);
+            }
+
             Process process = pb.start();
-            process.getInputStream().transferTo(System.out);
+            if (outputRedirect == null) {
+                process.getInputStream().transferTo(System.out);
+            }
+            process.getErrorStream().transferTo(System.err);
+            process.waitFor();
             return true;
         }
 
@@ -232,9 +357,7 @@ public class Main {
      * @return description of the command type, or an empty string
      */
     private static String type(String[] arguments) {
-        if (arguments.length == 0) {
-            return "";
-        }
+        if (arguments.length == 0) return "";
 
         String toCheck = arguments[0];
 
@@ -243,9 +366,7 @@ public class Main {
         } else {
             File program = findExecutable(toCheck);
 
-            if (program != null) {
-                return String.format("%s is %s\n", toCheck, program.getAbsolutePath());
-            }
+            if (program != null) return String.format("%s is %s\n", toCheck, program.getAbsolutePath());
 
             return String.format("%s: not found\n", toCheck);
         }
