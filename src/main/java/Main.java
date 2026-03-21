@@ -16,7 +16,8 @@ public class Main {
             String inputRedirect,
             String outputRedirect,
             boolean appendOutput,
-            String errorRedirect
+            String errorRedirect,
+            boolean appendError
     ) {}
 
     /**
@@ -41,10 +42,11 @@ public class Main {
             String outputRedirect = parsedInput.outputRedirect();
             boolean appendOutput = parsedInput.appendOutput();
             String errorRedirect = parsedInput.errorRedirect();
+            boolean appendError = parsedInput.appendError();
 
             if (isBuiltin(command)) {
                 prepareRedirectTarget(outputRedirect, appendOutput, false);
-                prepareRedirectTarget(errorRedirect, false, true);
+                prepareRedirectTarget(errorRedirect, appendError, true);
             }
 
             switch (command) {
@@ -71,16 +73,16 @@ public class Main {
                 case "cd": {
                     String cdError = cd(arguments);
                     if (!cdError.isEmpty()) {
-                        writeError(cdError, errorRedirect);
+                        writeError(cdError, errorRedirect, appendError);
                     }
                     break;
                 }
 
                 default: {
-                    boolean programRan = tryRun(command, arguments, inputRedirect, outputRedirect, appendOutput, errorRedirect);
+                    boolean programRan = tryRun(command, arguments, inputRedirect, outputRedirect, appendOutput, errorRedirect, appendError);
 
                     if (!programRan) {
-                        writeError(String.format("%s: command not found\n", command), errorRedirect);
+                        writeError(String.format("%s: command not found\n", command), errorRedirect, appendError);
                     }
                 }
             }
@@ -236,6 +238,7 @@ public class Main {
         String outputRedirect = null;
         boolean appendOutput = false;
         String errorRedirect = null;
+        boolean appendError = false;
         List<String> arguments = new ArrayList<>();
 
         for (int i = 0; i < tokens.size(); i++) {
@@ -252,8 +255,9 @@ public class Main {
                 continue;
             }
 
-            if (token.equals("2>") && i + 1 < tokens.size()) {
+            if ((token.equals("2>") || token.equals("2>>")) && i + 1 < tokens.size()) {
                 errorRedirect = tokens.get(++i);
+                appendError = token.endsWith(">>");
                 continue;
             }
 
@@ -262,7 +266,7 @@ public class Main {
 
         String command = arguments.getFirst();
         String[] argv = arguments.subList(1, arguments.size()).toArray(new String[0]);
-        return new ParsedCommand(command, argv, inputRedirect, outputRedirect, appendOutput, errorRedirect);
+        return new ParsedCommand(command, argv, inputRedirect, outputRedirect, appendOutput, errorRedirect, appendError);
     }
 
     /**
@@ -334,9 +338,7 @@ public class Main {
             return;
         }
 
-        try (FileOutputStream ignored = new FileOutputStream(outputFile, append)) {
-            // Opening in truncate mode is the behavior we need.
-        }
+        try (FileOutputStream ignored = new FileOutputStream(outputFile, append)) {}
     }
 
     /**
@@ -355,8 +357,8 @@ public class Main {
      * @param error command error text
      * @param errorRedirect stderr redirection target, or null when writing to the terminal
      */
-    private static void writeError(String error, String errorRedirect) throws Exception {
-        writeStream(error, errorRedirect, false, true);
+    private static void writeError(String error, String errorRedirect, boolean append) throws Exception {
+        writeStream(error, errorRedirect, append, true);
     }
 
     /**
@@ -409,7 +411,8 @@ public class Main {
             String inputRedirect,
             String outputRedirect,
             boolean appendOutput,
-            String errorRedirect
+            String errorRedirect,
+            boolean appendError
     ) throws Exception {
         File program = findExecutable(programName);
 
@@ -425,7 +428,7 @@ public class Main {
                 File inputFile = resolvePath(inputRedirect);
 
                 if (!inputFile.isFile()) {
-                    writeError(String.format("%s: No such file or directory\n", inputRedirect), errorRedirect);
+                    writeError(String.format("%s: No such file or directory\n", inputRedirect), errorRedirect, appendError);
                     return true;
                 }
 
@@ -436,7 +439,7 @@ public class Main {
                 File outputFile = resolvePath(outputRedirect);
                 File parentDirectory = outputFile.getAbsoluteFile().getParentFile();
                 if (parentDirectory != null && !parentDirectory.isDirectory()) {
-                    writeError(String.format("%s: No such file or directory\n", outputRedirect), errorRedirect);
+                    writeError(String.format("%s: No such file or directory\n", outputRedirect), errorRedirect, appendError);
                     return true;
                 }
 
@@ -455,7 +458,11 @@ public class Main {
                     return true;
                 }
 
-                pb.redirectError(errorFile);
+                if (appendError) {
+                    pb.redirectError(ProcessBuilder.Redirect.appendTo(errorFile));
+                } else {
+                    pb.redirectError(errorFile);
+                }
             }
 
             Process process = pb.start();
