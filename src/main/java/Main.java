@@ -40,6 +40,11 @@ public class Main {
             String outputRedirect = parsedInput.outputRedirect();
             String errorRedirect = parsedInput.errorRedirect();
 
+            if (isBuiltin(command)) {
+                prepareRedirectTarget(outputRedirect, false);
+                prepareRedirectTarget(errorRedirect, true);
+            }
+
             switch (command) {
                 case "exit": {
                     System.exit(0);
@@ -282,6 +287,44 @@ public class Main {
         }
 
         return resolved;
+    }
+
+    /**
+     * Returns whether the command is handled by the shell instead of a child process.
+     *
+     * @param command command name
+     * @return true when the shell executes the command directly
+     */
+    private static boolean isBuiltin(String command) {
+        return validCommands.contains(command) || command.equals("cd");
+    }
+
+    /**
+     * Opens and truncates a redirection target so builtins create the file even if they write nothing.
+     *
+     * @param redirectPath redirection target, or null when not redirected
+     * @param useErrorStream when true, setup failures are written to stderr
+     */
+    private static void prepareRedirectTarget(String redirectPath, boolean useErrorStream) throws Exception {
+        if (redirectPath == null) {
+            return;
+        }
+
+        File outputFile = resolvePath(redirectPath);
+        File parentDirectory = outputFile.getAbsoluteFile().getParentFile();
+
+        if (parentDirectory != null && !parentDirectory.isDirectory()) {
+            if (useErrorStream) {
+                System.err.printf("%s: No such file or directory\n", redirectPath);
+            } else {
+                System.out.printf("%s: No such file or directory\n", redirectPath);
+            }
+            return;
+        }
+
+        try (FileOutputStream ignored = new FileOutputStream(outputFile, false)) {
+            // Opening in truncate mode is the behavior we need.
+        }
     }
 
     /**
