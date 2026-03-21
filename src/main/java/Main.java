@@ -10,7 +10,13 @@ public class Main {
     private static final Set<String> validCommands = Set.of("exit", "echo", "type", "pwd");
 
     /** Parsed shell command with argv tokens and optional redirection metadata. */
-    private record ParsedCommand(String command, String[] arguments, String inputRedirect, String outputRedirect) {}
+    private record ParsedCommand(
+            String command,
+            String[] arguments,
+            String inputRedirect,
+            String outputRedirect,
+            String errorRedirect
+    ) {}
 
     /**
      * Starts the interactive read-eval-print loop.
@@ -32,6 +38,7 @@ public class Main {
             String[] arguments = parsedInput.arguments();
             String inputRedirect = parsedInput.inputRedirect();
             String outputRedirect = parsedInput.outputRedirect();
+            String errorRedirect = parsedInput.errorRedirect();
 
             switch (command) {
                 case "exit": {
@@ -55,15 +62,18 @@ public class Main {
                 }
 
                 case "cd": {
-                    writeOutput(cd(arguments), outputRedirect);
+                    String cdError = cd(arguments);
+                    if (!cdError.isEmpty()) {
+                        writeError(cdError, errorRedirect);
+                    }
                     break;
                 }
 
                 default: {
-                    boolean programRan = tryRun(command, arguments, inputRedirect, outputRedirect);
+                    boolean programRan = tryRun(command, arguments, inputRedirect, outputRedirect, errorRedirect);
 
                     if (!programRan) {
-                        System.out.printf("%s: command not found\n", command);
+                        writeError(String.format("%s: command not found\n", command), errorRedirect);
                     }
                 }
             }
@@ -184,9 +194,10 @@ public class Main {
             }
 
             if (c == '>' && !inSingleQuotes && !inDoubleQuotes) {
-                if (current.toString().equals("1")) {
+                if (current.toString().equals("1") || current.toString().equals("2")) {
+                    String redirectToken = current + ">";
                     current.setLength(0);
-                    tokens.add("1>");
+                    tokens.add(redirectToken);
                     continue;
                 }
 
@@ -208,6 +219,7 @@ public class Main {
 
         String inputRedirect = null;
         String outputRedirect = null;
+        String errorRedirect = null;
         List<String> arguments = new ArrayList<>();
 
         for (int i = 0; i < tokens.size(); i++) {
@@ -223,12 +235,17 @@ public class Main {
                 continue;
             }
 
+            if (token.equals("2>") && i + 1 < tokens.size()) {
+                errorRedirect = tokens.get(++i);
+                continue;
+            }
+
             arguments.add(token);
         }
 
         String command = arguments.getFirst();
         String[] argv = arguments.subList(1, arguments.size()).toArray(new String[0]);
-        return new ParsedCommand(command, argv, inputRedirect, outputRedirect);
+        return new ParsedCommand(command, argv, inputRedirect, outputRedirect, errorRedirect);
     }
 
     /**
@@ -274,25 +291,50 @@ public class Main {
      * @param outputRedirect stdout redirection target, or null when writing to the terminal
      */
     private static void writeOutput(String output, String outputRedirect) throws Exception {
-        if (output.isEmpty()) {
+        writeStream(output, outputRedirect, false);
+    }
+
+    /**
+     * Writes command errors either to the terminal or to a redirected stderr file.
+     *
+     * @param error command error text
+     * @param errorRedirect stderr redirection target, or null when writing to the terminal
+     */
+    private static void writeError(String error, String errorRedirect) throws Exception {
+        writeStream(error, errorRedirect, true);
+    }
+
+    /**
+     * Writes shell output to stdout/stderr or to a redirected file.
+     *
+     * @param content text to write
+     * @param redirectPath redirection target, or null when writing to the terminal
+     * @param useErrorStream when true, writes to stderr instead of stdout
+     */
+    private static void writeStream(String content, String redirectPath, boolean useErrorStream) throws Exception {
+        if (content.isEmpty()) {
             return;
         }
 
-        if (outputRedirect == null) {
-            System.out.print(output);
+        if (redirectPath == null) {
+            if (useErrorStream) {
+                System.err.print(content);
+            } else {
+                System.out.print(content);
+            }
             return;
         }
 
-        File outputFile = resolvePath(outputRedirect);
+        File outputFile = resolvePath(redirectPath);
         File parentDirectory = outputFile.getAbsoluteFile().getParentFile();
 
         if (parentDirectory != null && !parentDirectory.isDirectory()) {
-            System.err.printf("%s: No such file or directory\n", outputRedirect);
+            System.err.printf("%s: No such file or directory\n", redirectPath);
             return;
         }
 
         try (FileOutputStream outputStream = new FileOutputStream(outputFile, false)) {
-            outputStream.write(output.getBytes());
+            outputStream.write(content.getBytes());
         }
     }
 
@@ -303,9 +345,16 @@ public class Main {
      * @param arguments arguments to pass to the program
      * @param inputRedirect file path to connect to stdin, or null if not redirected
      * @param outputRedirect file path to connect to stdout, or null if not redirected
+     * @param errorRedirect file path to connect to stderr, or null if not redirected
      * @return true if the program was run, otherwise false
      */
-    private static boolean tryRun(String programName, String[] arguments, String inputRedirect, String outputRedirect) throws Exception {
+    private static boolean tryRun(
+            String programName,
+            String[] arguments,
+            String inputRedirect,
+            String outputRedirect,
+            String errorRedirect
+    ) throws Exception {
         File program = findExecutable(programName);
 
         if (program != null) {
@@ -320,7 +369,7 @@ public class Main {
                 File inputFile = resolvePath(inputRedirect);
 
                 if (!inputFile.isFile()) {
-                    System.err.printf("%s: No such file or directory\n", inputRedirect);
+                    writeError(String.format("%s: No such file or directory\n", inputRedirect), errorRedirect);
                     return true;
                 }
 
@@ -331,18 +380,31 @@ public class Main {
                 File outputFile = resolvePath(outputRedirect);
                 File parentDirectory = outputFile.getAbsoluteFile().getParentFile();
                 if (parentDirectory != null && !parentDirectory.isDirectory()) {
-                    System.err.printf("%s: No such file or directory\n", outputRedirect);
+                    writeError(String.format("%s: No such file or directory\n", outputRedirect), errorRedirect);
                     return true;
                 }
 
                 pb.redirectOutput(outputFile);
             }
 
+            if (errorRedirect != null) {
+                File errorFile = resolvePath(errorRedirect);
+                File parentDirectory = errorFile.getAbsoluteFile().getParentFile();
+                if (parentDirectory != null && !parentDirectory.isDirectory()) {
+                    System.err.printf("%s: No such file or directory\n", errorRedirect);
+                    return true;
+                }
+
+                pb.redirectError(errorFile);
+            }
+
             Process process = pb.start();
             if (outputRedirect == null) {
                 process.getInputStream().transferTo(System.out);
             }
-            process.getErrorStream().transferTo(System.err);
+            if (errorRedirect == null) {
+                process.getErrorStream().transferTo(System.err);
+            }
             process.waitFor();
             return true;
         }
