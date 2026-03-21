@@ -15,6 +15,7 @@ public class Main {
             String[] arguments,
             String inputRedirect,
             String outputRedirect,
+            boolean appendOutput,
             String errorRedirect
     ) {}
 
@@ -38,11 +39,12 @@ public class Main {
             String[] arguments = parsedInput.arguments();
             String inputRedirect = parsedInput.inputRedirect();
             String outputRedirect = parsedInput.outputRedirect();
+            boolean appendOutput = parsedInput.appendOutput();
             String errorRedirect = parsedInput.errorRedirect();
 
             if (isBuiltin(command)) {
-                prepareRedirectTarget(outputRedirect, false);
-                prepareRedirectTarget(errorRedirect, true);
+                prepareRedirectTarget(outputRedirect, appendOutput, false);
+                prepareRedirectTarget(errorRedirect, false, true);
             }
 
             switch (command) {
@@ -52,17 +54,17 @@ public class Main {
                 }
 
                 case "echo": {
-                    writeOutput(echo(arguments), outputRedirect);
+                    writeOutput(echo(arguments), outputRedirect, appendOutput);
                     break;
                 }
 
                 case "type": {
-                    writeOutput(type(arguments), outputRedirect);
+                    writeOutput(type(arguments), outputRedirect, appendOutput);
                     break;
                 }
 
                 case "pwd": {
-                    writeOutput(pwd() + '\n', outputRedirect);
+                    writeOutput(pwd() + '\n', outputRedirect, appendOutput);
                     break;
                 }
 
@@ -75,7 +77,7 @@ public class Main {
                 }
 
                 default: {
-                    boolean programRan = tryRun(command, arguments, inputRedirect, outputRedirect, errorRedirect);
+                    boolean programRan = tryRun(command, arguments, inputRedirect, outputRedirect, appendOutput, errorRedirect);
 
                     if (!programRan) {
                         writeError(String.format("%s: command not found\n", command), errorRedirect);
@@ -199,10 +201,15 @@ public class Main {
             }
 
             if (c == '>' && !inSingleQuotes && !inDoubleQuotes) {
+                boolean isAppend = i + 1 < line.length() && line.charAt(i + 1) == '>';
+
                 if (current.toString().equals("1") || current.toString().equals("2")) {
-                    String redirectToken = current + ">";
+                    String redirectToken = current + ">" + (isAppend ? ">" : "");
                     current.setLength(0);
                     tokens.add(redirectToken);
+                    if (isAppend) {
+                        i++;
+                    }
                     continue;
                 }
 
@@ -211,7 +218,10 @@ public class Main {
                     current.setLength(0);
                 }
 
-                tokens.add(">");
+                tokens.add(isAppend ? ">>" : ">");
+                if (isAppend) {
+                    i++;
+                }
                 continue;
             }
 
@@ -224,6 +234,7 @@ public class Main {
 
         String inputRedirect = null;
         String outputRedirect = null;
+        boolean appendOutput = false;
         String errorRedirect = null;
         List<String> arguments = new ArrayList<>();
 
@@ -235,8 +246,9 @@ public class Main {
                 continue;
             }
 
-            if ((token.equals(">") || token.equals("1>")) && i + 1 < tokens.size()) {
+            if ((token.equals(">") || token.equals("1>") || token.equals(">>") || token.equals("1>>")) && i + 1 < tokens.size()) {
                 outputRedirect = tokens.get(++i);
+                appendOutput = token.endsWith(">>");
                 continue;
             }
 
@@ -250,7 +262,7 @@ public class Main {
 
         String command = arguments.getFirst();
         String[] argv = arguments.subList(1, arguments.size()).toArray(new String[0]);
-        return new ParsedCommand(command, argv, inputRedirect, outputRedirect, errorRedirect);
+        return new ParsedCommand(command, argv, inputRedirect, outputRedirect, appendOutput, errorRedirect);
     }
 
     /**
@@ -305,7 +317,7 @@ public class Main {
      * @param redirectPath redirection target, or null when not redirected
      * @param useErrorStream when true, setup failures are written to stderr
      */
-    private static void prepareRedirectTarget(String redirectPath, boolean useErrorStream) throws Exception {
+    private static void prepareRedirectTarget(String redirectPath, boolean append, boolean useErrorStream) throws Exception {
         if (redirectPath == null) {
             return;
         }
@@ -322,7 +334,7 @@ public class Main {
             return;
         }
 
-        try (FileOutputStream ignored = new FileOutputStream(outputFile, false)) {
+        try (FileOutputStream ignored = new FileOutputStream(outputFile, append)) {
             // Opening in truncate mode is the behavior we need.
         }
     }
@@ -333,8 +345,8 @@ public class Main {
      * @param output command output text
      * @param outputRedirect stdout redirection target, or null when writing to the terminal
      */
-    private static void writeOutput(String output, String outputRedirect) throws Exception {
-        writeStream(output, outputRedirect, false);
+    private static void writeOutput(String output, String outputRedirect, boolean append) throws Exception {
+        writeStream(output, outputRedirect, append, false);
     }
 
     /**
@@ -344,7 +356,7 @@ public class Main {
      * @param errorRedirect stderr redirection target, or null when writing to the terminal
      */
     private static void writeError(String error, String errorRedirect) throws Exception {
-        writeStream(error, errorRedirect, true);
+        writeStream(error, errorRedirect, false, true);
     }
 
     /**
@@ -354,7 +366,7 @@ public class Main {
      * @param redirectPath redirection target, or null when writing to the terminal
      * @param useErrorStream when true, writes to stderr instead of stdout
      */
-    private static void writeStream(String content, String redirectPath, boolean useErrorStream) throws Exception {
+    private static void writeStream(String content, String redirectPath, boolean append, boolean useErrorStream) throws Exception {
         if (content.isEmpty()) {
             return;
         }
@@ -376,7 +388,7 @@ public class Main {
             return;
         }
 
-        try (FileOutputStream outputStream = new FileOutputStream(outputFile, false)) {
+        try (FileOutputStream outputStream = new FileOutputStream(outputFile, append)) {
             outputStream.write(content.getBytes());
         }
     }
@@ -396,6 +408,7 @@ public class Main {
             String[] arguments,
             String inputRedirect,
             String outputRedirect,
+            boolean appendOutput,
             String errorRedirect
     ) throws Exception {
         File program = findExecutable(programName);
@@ -427,7 +440,11 @@ public class Main {
                     return true;
                 }
 
-                pb.redirectOutput(outputFile);
+                if (appendOutput) {
+                    pb.redirectOutput(ProcessBuilder.Redirect.appendTo(outputFile));
+                } else {
+                    pb.redirectOutput(outputFile);
+                }
             }
 
             if (errorRedirect != null) {
